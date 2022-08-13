@@ -17,6 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/semihalev/log"
 	"net"
 	"os"
 	"strconv"
@@ -53,6 +54,7 @@ var (
 	client       = flag.String("client", "", "set edns client-subnet option")
 	opcode       = flag.String("opcode", "query", "set opcode to query|update|notify")
 	rcode        = flag.String("rcode", "success", "set rcode to noerror|formerr|nxdomain|servfail|...")
+	flagcfgpath  = flag.String("config", "q.conf", "location of the config file, if config file not found, a config will generate")
 )
 
 func main() {
@@ -82,6 +84,22 @@ func main() {
 			fmt.Fprintf(os.Stderr, "No DNSKEY read from %s\n", *anchor)
 		} else {
 			dnskey = k
+		}
+	}
+
+	var rootkeys []dns.RR
+	if *check {
+		const version = "1.2.1"
+		cfg, err := Load(*flagcfgpath, version)
+		if err != nil {
+			log.Crit("Config loading failed", "error", err.Error())
+		}
+		for _, k := range cfg.RootKeys {
+			rr, err := dns.NewRR(k)
+			if err != nil {
+				log.Crit("Root keys invalid", "error", err.Error())
+			}
+			rootkeys = append(rootkeys, rr)
 		}
 	}
 
@@ -311,8 +329,9 @@ func main() {
 			}
 
 			if *check {
-				sigCheck(r, nameserver, true)
-				denialCheck(r)
+				//sigCheck(r, nameserver, true)
+				E2eValidation(v, r, rootkeys)
+				//denialCheck(r)
 				fmt.Println()
 			}
 			if *short {
@@ -382,37 +401,36 @@ Query:
 			fmt.Printf(";; %s\n", err.Error())
 			continue
 		}
-		if(r.Truncated) {
-			if *fallback {
-				if !*dnssec {
-					fmt.Printf(";; Truncated, trying %d bytes bufsize\n", dns.DefaultMsgSize)
-					o := new(dns.OPT)
-					o.Hdr.Name = "."
-					o.Hdr.Rrtype = dns.TypeOPT
-					o.SetUDPSize(dns.DefaultMsgSize)
-					m.Extra = append(m.Extra, o)
-					r, rtt, err = c.Exchange(m, nameserver)
-					*dnssec = true
-					goto Redo
-				} else {
-					// First EDNS, then TCP
-					fmt.Printf(";; Truncated, trying TCP\n")
-					c.Net = "tcp"
-					r, rtt, err = c.Exchange(m, nameserver)
-					*fallback = false
-					goto Redo
-				}
+		if r.Truncated {
+			if !*dnssec {
+				fmt.Printf(";; Truncated, trying %d bytes bufsize\n", dns.DefaultMsgSize)
+				o := new(dns.OPT)
+				o.Hdr.Name = "."
+				o.Hdr.Rrtype = dns.TypeOPT
+				o.SetUDPSize(dns.DefaultMsgSize)
+				m.Extra = append(m.Extra, o)
+				r, rtt, err = c.Exchange(m, nameserver)
+				*dnssec = true
+				goto Redo
+			} else {
+				// First EDNS, then TCP
+				fmt.Printf(";; Truncated, trying TCP\n")
+				c.Net = "tcp"
+				r, rtt, err = c.Exchange(m, nameserver)
+				*fallback = false
+				goto Redo
 			}
+
 			fmt.Printf(";; Truncated\n")
 		}
 		if r.Id != m.Id {
 			fmt.Fprintf(os.Stderr, "Id mismatch\n")
 			return
 		}
-
 		if *check {
-			sigCheck(r, nameserver, *tcp)
-			denialCheck(r)
+			//sigCheck(r, nameserver, *tcp)
+			E2eValidation(v, r, rootkeys)
+			//denialCheck(r)
 			fmt.Println()
 		}
 		if *short {

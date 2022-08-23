@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"github.com/semihalev/log"
@@ -55,6 +56,8 @@ var (
 	opcode       = flag.String("opcode", "query", "set opcode to query|update|notify")
 	rcode        = flag.String("rcode", "success", "set rcode to noerror|formerr|nxdomain|servfail|...")
 	flagcfgpath  = flag.String("config", "q.conf", "location of the config file, if config file not found, a config will generate")
+	output       = flag.String("output", "", "location of output file")
+	chain        = flag.String("chain", "", "length of delegation chain")
 )
 
 func main() {
@@ -87,6 +90,16 @@ func main() {
 		}
 	}
 
+	var file *os.File
+
+	if *output != "" {
+		var err error
+		file, err = os.OpenFile(*output, os.O_CREATE|os.O_APPEND|os.O_WRONLY, os.ModePerm)
+		if err != nil {
+			file, err = os.Create(*output)
+			fmt.Printf("Create file to write result: %s\n", *output)
+		}
+	}
 	var rootkeys []dns.RR
 	if *check {
 		const version = "1.2.1"
@@ -338,6 +351,13 @@ func main() {
 				shortenMsg(r)
 			}
 
+			if *output != "" {
+				w := csv.NewWriter(file)
+				data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
+				fmt.Printf("Write data: %s", data)
+				w.Write(data)
+				w.Flush()
+			}
 			fmt.Printf("%v", r)
 			fmt.Printf("\n;; query time: %.3d µs, server: %s(%s), size: %d bytes\n", rtt/1e3, nameserver, tcp, r.Len())
 		}
@@ -436,7 +456,13 @@ Query:
 		if *short {
 			shortenMsg(r)
 		}
-
+		if *output != "" {
+			w := csv.NewWriter(file)
+			data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
+			fmt.Printf("Write data: %s", data)
+			w.Write(data)
+			w.Flush()
+		}
 		fmt.Printf("%v", r)
 		fmt.Printf("\n;; query time: %.3d µs, server: %s(%s), size: %d bytes\n", rtt/1e3, nameserver, c.Net, r.Len())
 	}

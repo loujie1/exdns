@@ -47,91 +47,8 @@ func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
 			rrsets[name] = append(rrsets[rr.Header().Name], rr)
 		}
 	}
-	//domains := make([]string, 0, len(rrsets))
-	//
-	//for k := range rrsets {
-	//	domains = append(domains, k)
-	//}
-	//
-	//sort.Slice(domains, func(i, j int) bool {
-	//	return len(domains[i]) < len(domains[j])
-	//})
 
 	fmt.Printf("----------------E2E VALIDATION START------------\n")
-	//for i, d := range domains {
-	//	newRRSet := rrsets[d]
-	//	// move DS and SIG to parent rrset
-	//	if i < len(domains)-1 {
-	//		child := domains[i+1]
-	//		var child_rrset []dns.RR
-	//		for _, cr := range rrsets[child] {
-	//			switch cr.Header().Rrtype {
-	//			case dns.TypeDS:
-	//				newRRSet = append(newRRSet, cr)
-	//			case dns.TypeRRSIG:
-	//				sig := cr.(*dns.RRSIG)
-	//				if sig.TypeCovered == dns.TypeDS {
-	//					newRRSet = append(newRRSet, cr)
-	//				} else {
-	//					child_rrset = append(child_rrset, cr)
-	//				}
-	//			default:
-	//				child_rrset = append(child_rrset, cr)
-	//			}
-	//		}
-	//		rrsets[child] = child_rrset
-	//		rrsets[d] = newRRSet
-	//	}
-	//}
-	//var parentDSRR []dns.RR
-	//for i, d := range domains {
-	//	rrset := rrsets[d]
-	//
-	//	keys := make(map[uint16]*dns.DNSKEY)
-	//	for _, a := range rrset {
-	//		if a.Header().Rrtype == dns.TypeDNSKEY {
-	//			dnskey := a.(*dns.DNSKEY)
-	//			tag := dnskey.KeyTag()
-	//			if dnskey.Flags == 256 || dnskey.Flags == 257 {
-	//				keys[tag] = dnskey
-	//			}
-	//		}
-	//	}
-	//
-	//	// verify keys
-	//	if i == 0 {
-	//		dsset := []dns.RR{}
-	//		for _, a := range rootkeys {
-	//			if dnskey, ok := a.(*dns.DNSKEY); ok {
-	//				dsset = append(dsset, dnskey.ToDS(dns.RSASHA1))
-	//			}
-	//		}
-	//		if len(dsset) == 0 {
-	//			fmt.Printf(";- Root Zone DS set empty")
-	//		}
-	//
-	//		if _, err := verifyDS(keys, dsset); err != nil {
-	//			fmt.Printf(";- Root Zone DS not Verified")
-	//		} else {
-	//			fmt.Printf(";+ Root Zone DS Verified")
-	//		}
-	//
-	//	} else {
-	//		if len(parentDSRR) == 0 {
-	//			fmt.Printf(";? DS for %s not found\n", d)
-	//		}
-	//		if unsupportedDigest, err := verifyDS(keys, parentDSRR); err != nil {
-	//			fmt.Printf(";- DNSSEC DS verify failed, signer: %s, error: %s, unsupported digest: %t", d, err.Error(), unsupportedDigest)
-	//		} else {
-	//			fmt.Printf(";- KSK verified with DS record for domain %s\n", d)
-	//		}
-	//	}
-	//
-	//	SigCheck(rrset, keys)
-	//	if i < len(domains)-1 {
-	//		parentDSRR = extractRRSet(rrset, "", dns.TypeDS)
-	//	}
-	//}
 
 	var parentDSRR []dns.RR
 	currzone := rootzone
@@ -179,7 +96,6 @@ func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
 
 			if _, err := verifyDS(keys, dsset); err != nil {
 				fmt.Printf(";- Root Zone DS not Verified, err: %s\n", err.Error())
-				return
 			} else {
 				fmt.Printf(";+ Root Zone DS Verified")
 			}

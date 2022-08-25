@@ -351,7 +351,7 @@ func main() {
 				shortenMsg(r)
 			}
 
-			if *output != "" {
+			if r.Rcode == dns.RcodeSuccess && *output != "" {
 				w := csv.NewWriter(file)
 				data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
 				fmt.Printf("Write data: %s", data)
@@ -456,7 +456,7 @@ Query:
 		if *short {
 			shortenMsg(r)
 		}
-		if *output != "" {
+		if r.Rcode == dns.RcodeSuccess && *output != "" {
 			w := csv.NewWriter(file)
 			data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
 			fmt.Printf("Write data: %s", data)

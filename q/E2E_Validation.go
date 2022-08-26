@@ -26,7 +26,7 @@ const (
 	rootzone = "."
 )
 
-func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
+func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) bool {
 	rrsets := make(map[string][]dns.RR)
 	childMap := make(map[string]string)
 	DSwithSig := make(map[string][]dns.RR)
@@ -91,11 +91,12 @@ func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
 			}
 			if len(dsset) == 0 {
 				fmt.Printf(";- Root Zone DS set empty")
-				return
+				return false
 			}
 
 			if _, err := verifyDS(keys, dsset); err != nil {
 				fmt.Printf(";- Root Zone DS not Verified, err: %s\n", err.Error())
+				return false
 			} else {
 				fmt.Printf(";+ Root Zone DS Verified")
 			}
@@ -103,17 +104,19 @@ func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
 		} else {
 			if len(parentDSRR) == 0 {
 				fmt.Printf(";? DS for %s not found\n", currzone)
-				return
+				return false
 			}
 			if unsupportedDigest, err := verifyDS(keys, parentDSRR); err != nil {
 				fmt.Printf(";- DNSSEC DS verify failed, signer: %s, error: %s, unsupported digest: %t", currzone, err.Error(), unsupportedDigest)
-				return
+				return false
 			} else {
 				fmt.Printf(";- KSK verified with DS record for domain %s\n", currzone)
 			}
 		}
 
-		SigCheck(rrset, keys)
+		if !SigCheck(rrset, keys) {
+			return false
+		}
 		if isParent {
 			parentDSRR = extractRRSet(rrset, "", dns.TypeDS)
 			currzone = child
@@ -124,10 +127,15 @@ func E2eValidation(qname string, msg *dns.Msg, rootkeys []dns.RR) {
 		}
 	}
 	fmt.Printf("----------------Start Checking Answer Section------------\n")
-	SigCheck(msg.Answer, keys)
+	if !SigCheck(msg.Answer, keys) {
+		return false
+	}
 	fmt.Printf("----------------Start Checking NS Section------------\n")
-	SigCheck(msg.Ns, keys)
+	if !SigCheck(msg.Ns, keys) {
+		return false
+	}
 	fmt.Printf("----------------E2E VALIDATION END------------\n")
+	return true
 }
 
 func verifyDS(keyMap map[uint16]*dns.DNSKEY, parentDSSet []dns.RR) (bool, error) {
@@ -182,7 +190,7 @@ func extractRRSet(in []dns.RR, name string, t ...uint16) []dns.RR {
 	return out
 }
 
-func SigCheck(set []dns.RR, keyMap map[uint16]*dns.DNSKEY) {
+func SigCheck(set []dns.RR, keyMap map[uint16]*dns.DNSKEY) bool {
 	for _, rr := range set {
 		if rr.Header().Rrtype == dns.TypeRRSIG {
 			var expired string
@@ -193,14 +201,17 @@ func SigCheck(set []dns.RR, keyMap map[uint16]*dns.DNSKEY) {
 			key := keyMap[rr.(*dns.RRSIG).KeyTag]
 			if key == nil {
 				fmt.Printf(";? DNSKEY %s/%d not found\n", rr.(*dns.RRSIG).SignerName, rr.(*dns.RRSIG).KeyTag)
+				return false
 				continue
 			}
 			if err := rr.(*dns.RRSIG).Verify(key, rrset); err != nil {
 				fmt.Printf(";- Bogus signature, %s does not validate (DNSKEY %s/%d) [%s] %s\n",
 					shortSig(rr.(*dns.RRSIG)), key.Header().Name, key.KeyTag(), err.Error(), expired)
+				return false
 			} else {
 				fmt.Printf(";+ Secure signature, %s validates (DNSKEY %s/%d) %s\n", shortSig(rr.(*dns.RRSIG)), key.Header().Name, key.KeyTag(), expired)
 			}
 		}
 	}
+	return true
 }

@@ -343,7 +343,9 @@ func main() {
 
 			if *check {
 				//sigCheck(r, nameserver, true)
-				E2eValidation(v, r, rootkeys)
+				if !E2eValidation(v, r, rootkeys) {
+					continue
+				}
 				//denialCheck(r)
 				fmt.Println()
 			}
@@ -449,7 +451,9 @@ Query:
 		}
 		if *check {
 			//sigCheck(r, nameserver, *tcp)
-			E2eValidation(v, r, rootkeys)
+			if !E2eValidation(v, r, rootkeys) {
+				continue
+			}
 			//denialCheck(r)
 			fmt.Println()
 		}

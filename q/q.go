@@ -340,11 +340,11 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Id mismatch\n")
 				continue
 			}
-
+			writeResult := true
 			if *check {
 				//sigCheck(r, nameserver, true)
 				if !E2eValidation(v, r, rootkeys) {
-					continue
+					writeResult = false
 				}
 				//denialCheck(r)
 				fmt.Println()
@@ -353,7 +353,7 @@ func main() {
 				shortenMsg(r)
 			}
 
-			if r.Rcode == dns.RcodeSuccess && *output != "" {
+			if r.Rcode == dns.RcodeSuccess && *output != "" && writeResult {
 				w := csv.NewWriter(file)
 				data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
 				fmt.Printf("Write data: %s", data)
@@ -449,10 +449,11 @@ Query:
 			fmt.Fprintf(os.Stderr, "Id mismatch\n")
 			return
 		}
+		writeResult := true
 		if *check {
 			//sigCheck(r, nameserver, *tcp)
 			if !E2eValidation(v, r, rootkeys) {
-				continue
+				writeResult = false
 			}
 			//denialCheck(r)
 			fmt.Println()
@@ -460,7 +461,7 @@ Query:
 		if *short {
 			shortenMsg(r)
 		}
-		if r.Rcode == dns.RcodeSuccess && *output != "" {
+		if r.Rcode == dns.RcodeSuccess && *output != "" && writeResult {
 			w := csv.NewWriter(file)
 			data := []string{*chain, fmt.Sprintf("%.3d", rtt/1e3)}
 			fmt.Printf("Write data: %s", data)
